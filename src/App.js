@@ -1,5 +1,7 @@
 import * as React from 'react';
 
+const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
+
 const useSemiPersistentState = (key, initialState) => {
     const [value, setValue] = React.useState(
         localStorage.getItem(key) || initialState 
@@ -11,33 +13,6 @@ const useSemiPersistentState = (key, initialState) => {
 
     return [value, setValue];
 };
-
-const initialStories = [
-    {
-        title: 'React',
-        url: 'https://reactjs.org/',
-        author: 'Jordan walk',
-        num_comments: 3,
-        points: 4,
-        objectID: 0,
-    },
-    {
-        title: 'Redux',
-        url: 'https://redux.js.org/',
-        author: 'Dan Abramov, Andrew Clark',
-        num_comments: 2,
-        points: 5,
-        objectID:1,
-    },
-];
-
-const getAsyncStories = () =>
-    new Promise((resolve) =>
-        setTimeout(
-            () => resolve({data: {stories: initialStories }}),
-            2000
-        )
-    );
 
 const removeStory = 'REMOVE_STORY';
 const fetchInit   = 'STORIES_FETCH_INIT';
@@ -86,16 +61,13 @@ const App = () => {
     
     React.useEffect(() => {
         dispatchStories({type: fetchInit});
-
-        getAsyncStories()
-            .then(result => {
-                dispatchStories({
-                    type: fetchSuccess,
-                    payload: result.data.stories,
-                });
+    
+        fetch(`${API_ENDPOINT}react`) // B 
+            .then((response) => response.json())
+            .then((result) => {
                 dispatchStories({
                     type: fetchSuccess, 
-                    payload: result.data.stories,
+                    payload: result.hits,
                 });
             })
             .catch(() => 
