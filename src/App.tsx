@@ -1,5 +1,6 @@
 import * as React from 'react';
 import axios from 'axios';
+import { sortBy } from 'lodash';
 import './App.css';
 
 type Story = {
@@ -271,15 +272,62 @@ const InputWithLabel = ({
     );
 };
 
+interface sortsInfo {
+    [key: string] : (list: Stories) => Stories,
+};
+
+const SORTS : sortsInfo  = {
+    NONE: (list: Stories) => list,
+    TITLE: (list: Stories) =>  sortBy(list, 'title'),
+    AUTHOR: (list: Stories) => sortBy(list, 'author'),
+    COMMENT: (list: Stories) => sortBy(list, 'num_comments').reverse(),
+    POINT: (list: Stories) => sortBy(list, 'points').reverse(),
+};
+
 type ListProps = {
     list: Stories;
     onRemoveItem: (item: Story) => void;
 };
 
 const List = React.memo(
-     ({list, onRemoveItem}: ListProps) => ( 
+    ({list, onRemoveItem}: ListProps) => {
+        
+    const [sort, setSort] = React.useState('NONE');
+
+    const handleSort = (sortKey: string) => {
+        setSort(sortKey);
+    }; 
+    
+    const sortFunction = SORTS[sort];
+    const sortedList = sortFunction(list);
+
+    return (
         <ul>
-            {list.map((item) => 
+            <li style={{ display: 'flex' }}>
+                <span style={{ width: '40%' }}>
+                    <button type="button" onClick={() => handleSort('TITLE')}>
+                        Title
+                    </button>
+                </span>
+                <span style={{ width: '30%' }}>
+                    <button type="button" onClick={() => handleSort('AUTHOR')}>
+                        Author    
+                    </button>
+                </span>
+                <span style={{ width: '10%' }}>
+                    <button type="button" onClick={() => handleSort('COMMENT')}>
+                        Comments    
+                    </button>
+                </span>
+                <span style={{ width: '10%' }}>
+                    <button type="button" onClick={() => handleSort('POINT')}>
+                        Points    
+                    </button>
+                </span>
+                <span style={{ width: '10%' }}>Actions</span>
+            </li>
+
+            {sortedList.map((item: Story) => 
                 <Item 
                     key={item.objectID} 
                     item={item}
@@ -287,7 +335,8 @@ const List = React.memo(
                 /> 
             )}
         </ul>
-    )
+    );
+    }
 );
 
 type ItemProps = {
