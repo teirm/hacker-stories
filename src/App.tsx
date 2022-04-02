@@ -14,7 +14,10 @@ type Story = {
 
 type Stories = Array<Story>;
 
-const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
+const API_BASE = 'https://hn.algolia.com/api/v1';
+const API_SEARCH = '/search';
+const PARAM_SEARCH = 'query=';
+const PARAM_PAGE = 'page=';
 
 const useSemiPersistentState = (
     key: string, 
@@ -49,6 +52,7 @@ interface StoriesFetchInitAction {
 interface StoriesFetchSuccessAction {
     type: typeof fetchSuccess;
     payload: Stories;
+    page: number;
 }
 
 interface StoriesFetchFailureAction {
@@ -64,6 +68,7 @@ type StoriesState = {
     data: Stories;
     isLoading: boolean;
     isError: boolean;
+    page: number;
 };
 
 type StoriesAction =
@@ -88,7 +93,10 @@ const storiesReducer = (
                 ...state,
                 isLoading: false,
                 isError: false,
-                data: action.payload,
+                data: 
+                    action.page === 0
+                        ? action.payload : state.data.concat(action.payload), 
+                page: action.page,
             };
         case fetchFailure:
             return {
@@ -117,8 +125,13 @@ const getSumComments = (
     );
 };
 
-const getUrl = (searchTerm: string) => `${API_ENDPOINT}${searchTerm}`;
-const extractSearchTerm = (url:string) => url.replace(API_ENDPOINT, '');
+const getUrl = (searchTerm: string, page: number) => 
+    `${API_BASE}${API_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}`;
+
+const extractSearchTerm = (url:string) => 
+    url.substring(url.lastIndexOf('?') + 1, url.lastIndexOf('&'))
+       .replace(PARAM_SEARCH, '');
+
 const getLastSearches = (urls: Array<string>) => 
     urls
         .reduce((result: Array<string> , url, index) => {
@@ -144,7 +157,7 @@ const App = () => {
         'React'
     );
     
-    const [urls, setUrls] = React.useState([getUrl(searchTerm)]);
+    const [urls, setUrls] = React.useState([getUrl(searchTerm, 0)]);
 
     const handleSearchInput = (
         event: React.ChangeEvent<HTMLInputElement>
@@ -155,13 +168,13 @@ const App = () => {
     const handleSearchSubmit = (
         event: React.FormEvent<HTMLFormElement>
     ) => {
-        handleSearch(searchTerm);
+        handleSearch(searchTerm, 0);
         event.preventDefault();
     };
 
     const [stories, dispatchStories] = React.useReducer(
         storiesReducer,
-        {data: [], isLoading: false, isError: false } 
+        {data: [], page: 0, isLoading: false, isError: false } 
     );
    
     const handleFetchStories = React.useCallback(async () => { 
@@ -172,7 +185,8 @@ const App = () => {
             const result = await axios.get(lastUrl);  
             dispatchStories({
                 type: fetchSuccess, 
-                payload: result.data.hits
+                payload: result.data.hits,
+                page: result.data.page,
             });
         } catch {
             dispatchStories({type: fetchFailure});
@@ -194,15 +208,21 @@ const App = () => {
 
     const handleLastSearch = (searchTerm: string) => {
         setSearchTerm(searchTerm);
-        handleSearch(searchTerm);
+        handleSearch(searchTerm, 0);
     };
 
-    const handleSearch = (searchTerm: string) => {
-        const url = getUrl(searchTerm);
+    const handleSearch = (searchTerm: string, page: number) => {
+        const url = getUrl(searchTerm, page);
         setUrls(urls.concat(url));
     };
     
     const lastSearches = getLastSearches(urls);
+
+    const handleMore = () => {
+        const lastUrl = urls[urls.length - 1];
+        const searchTerm = extractSearchTerm(lastUrl);
+        handleSearch(searchTerm, stories.page + 1);
+    };
 
     return (
         <div className="container">
@@ -221,13 +241,17 @@ const App = () => {
             
             {stories.isError && <p>Somethin went wrong...</p>}
 
+            <List 
+                list={stories.data} 
+                onRemoveItem={handleRemoveStory} 
+            />
+
             {stories.isLoading ? (
                 <p>Loading ...</p>
             ) : (
-                <List 
-                    list={stories.data} 
-                    onRemoveItem={handleRemoveStory} 
-                />
+                <button type="button" onClick={handleMore}>
+                    More
+                </button>
             )}
         </div>
     );
